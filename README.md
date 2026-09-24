@@ -122,7 +122,7 @@ python -m scripts.scaling_laws --analyze_only     # 只重新拟合 / 画图
 ## 目录
 
 ```
-ruozhi/            模型与工具
+core/              模型与工具
   gpt.py           GPT（nanochat 结构）+ 生成
   muon.py          Muon 优化器
   tokenizer.py     BPE 分词器 + 对话模板

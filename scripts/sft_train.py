@@ -14,10 +14,10 @@ from collections import defaultdict
 
 import torch
 
-from ruozhi.common import get_path, print0, seed_everything, autodetect_device, get_amp
-from ruozhi.checkpoint import load_model, checkpoint_dir, save_checkpoint
-from ruozhi.dataloader import SFTLoader, load_conversations
-from ruozhi.evaluate import evaluate_bpb, sample_chat
+from core.common import get_path, print0, seed_everything, autodetect_device, get_amp
+from core.checkpoint import load_model, checkpoint_dir, save_checkpoint
+from core.dataloader import SFTLoader, load_conversations
+from core.evaluate import evaluate_bpb, sample_chat
 
 
 def get_args():

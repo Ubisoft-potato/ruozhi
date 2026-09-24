@@ -22,7 +22,7 @@ import subprocess
 
 import numpy as np
 
-from ruozhi.common import get_path, print0, save_json
+from core.common import get_path, print0, save_json
 
 
 def run_dir(budget, depth):

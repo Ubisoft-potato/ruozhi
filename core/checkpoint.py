@@ -10,9 +10,9 @@ import glob
 
 import torch
 
-from ruozhi.common import get_path, save_json, load_json, print0
-from ruozhi.gpt import GPT, GPTConfig
-from ruozhi.tokenizer import RuozhiTokenizer
+from core.common import get_path, save_json, load_json, print0
+from core.gpt import GPT, GPTConfig
+from core.tokenizer import RuozhiTokenizer
 
 SOURCE_DIRS = {"base": "base_checkpoints", "sft": "sft_checkpoints"}
 

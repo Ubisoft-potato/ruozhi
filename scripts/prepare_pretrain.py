@@ -22,8 +22,8 @@ import multiprocessing as mp
 
 import numpy as np
 
-from ruozhi.common import get_path, print0, save_json
-from ruozhi.tokenizer import RuozhiTokenizer
+from core.common import get_path, print0, save_json
+from core.tokenizer import RuozhiTokenizer
 
 DATASETS = {
     # name: (hf repo, config, text field)

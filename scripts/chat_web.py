@@ -9,8 +9,8 @@ import argparse
 import torch
 import gradio as gr
 
-from ruozhi.common import autodetect_device, get_amp
-from ruozhi.checkpoint import load_model
+from core.common import autodetect_device, get_amp
+from core.checkpoint import load_model
 
 EXAMPLES = [
     "来一条弱智吧金句",

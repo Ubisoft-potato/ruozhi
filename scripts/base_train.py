@@ -19,12 +19,12 @@ import argparse
 
 import torch
 
-from ruozhi.common import get_path, print0, seed_everything, autodetect_device, get_amp, peak_flops
-from ruozhi.gpt import GPT, GPTConfig
-from ruozhi.tokenizer import RuozhiTokenizer
-from ruozhi.dataloader import TokenFileLoader
-from ruozhi.checkpoint import checkpoint_dir, save_checkpoint
-from ruozhi.evaluate import evaluate_bpb, sample_base
+from core.common import get_path, print0, seed_everything, autodetect_device, get_amp, peak_flops
+from core.gpt import GPT, GPTConfig
+from core.tokenizer import RuozhiTokenizer
+from core.dataloader import TokenFileLoader
+from core.checkpoint import checkpoint_dir, save_checkpoint
+from core.evaluate import evaluate_bpb, sample_base
 
 
 def get_args():

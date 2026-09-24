@@ -27,7 +27,7 @@ import random
 import argparse
 import urllib.request
 
-from ruozhi.common import get_path, print0
+from core.common import get_path, print0
 
 GITHUB_SOURCES = {
     "title_good": "https://raw.githubusercontent.com/Leymore/ruozhiba/main/data/ruozhiba-title-good.json",

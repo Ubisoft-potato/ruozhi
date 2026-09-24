@@ -158,7 +158,7 @@ class GPT(nn.Module):
 
     # ------------------------------------------------------------ optimizer
     def setup_optimizers(self, unembedding_lr=0.004, embedding_lr=0.2, matrix_lr=0.02, weight_decay=0.0):
-        from ruozhi.muon import Muon
+        from core.muon import Muon
         model_dim = self.config.n_embd
         matrix_params = list(self.transformer.h.parameters())
         embedding_params = list(self.transformer.wte.parameters())
