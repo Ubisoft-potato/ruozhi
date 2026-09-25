@@ -50,6 +50,16 @@ HuggingFace 上的两个来源访问失败时自动跳过（`--no_hf` 可强制�
 
 一般帖子只取回复数 ≥ 3 的（`--min_reply`），其余只用于分词器 / 预训练。3% 划为验证集，验证集内容不会出现在预训练语料里。
 
+**对线 / 阴阳怪气**（可选 SFT 混合：`python -m scripts.prepare_duixian`，然后 `python -m scripts.sft_train --extra duixian`）
+
+| 来源 | 内容 | 任务 |
+|---|---|---|
+| [Orphanage/Baidu_Tieba_SunXiaochuan](https://huggingface.co/datasets/Orphanage/Baidu_Tieba_SunXiaochuan) | 孙吧 2.1k 帖（标题 + 楼主 → 回复） | `tieba` |
+| [Orphanage/Baidu_Tieba_KangYaBeiGuo](https://huggingface.co/datasets/Orphanage/Baidu_Tieba_KangYaBeiGuo) | 抗压背锅吧 5.1k 帖 | `tieba` |
+| [PostMindLab/ToxiRewriteCN](https://github.com/PostMindLab/ToxiRewriteCN) | 脏话 / 谐音 / emoji 与去毒改写对照，只取 40 字以内的单句 | `yinyang`（正常 → 冲）、`wenming`（冲 → 正常） |
+
+贴吧每帖只取前 8 条可用回复（`--replies_per_thread`，越靠前越是在回楼主），去掉广告 / 签名 / 引用楼层，验证集按帖划分。ToxiCN、COLDataset 是分类数据集，评论大多是针对群体的观点而非对人回复，不适合作为 SFT 回答，所以不使用。默认不按内容过滤；加 `--filter` 会用 ToxiCN 的群体词库去掉针对群体的仇恨言论，并去掉暴力威胁。
+
 **通用预训练**：默认 [HuggingFaceFW/fineweb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) 的 `cmn_Hani`（中文网页，口语化，最接近贴吧），并过滤掉繁体为主的文档；也可以 `--dataset fineweb-edu-zh`（[opencsg/Fineweb-Edu-Chinese-V2.1](https://huggingface.co/datasets/opencsg/Fineweb-Edu-Chinese-V2.1)）或 `--dataset wiki`。
 
 > ⚠️ 弱智吧内容是网友创作的谐音梗、冷笑话，部分可能冒犯或低俗；模型输出仅供娱乐，不保证正确。各数据集的许可请以原仓库为准。
