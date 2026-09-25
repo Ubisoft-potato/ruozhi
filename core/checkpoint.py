@@ -44,6 +44,8 @@ def load_model(source, device, depth=None):
         depth = find_latest_depth(source)
     ckpt_dir = checkpoint_dir(source, depth)
     meta = load_json(os.path.join(ckpt_dir, "meta.json"))
+    tokenizer = RuozhiTokenizer.load(os.path.dirname(get_path("tokenizer", "x")))
+    tokenizer.check_compatible(meta, f"checkpoint {ckpt_dir}")
     config = GPTConfig(**meta["model_config"])
     with torch.device("meta"):
         model = GPT(config)
@@ -54,5 +56,4 @@ def load_model(source, device, depth=None):
     cos, sin = model._precompute_rotary(model.rotary_seq_len, config.n_embd // config.n_head)
     model.cos, model.sin = cos.to(device), sin.to(device)
     model.eval()
-    tokenizer = RuozhiTokenizer.load(os.path.dirname(get_path("tokenizer", "x")))
     return model, tokenizer, meta

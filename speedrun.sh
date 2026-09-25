@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end: data -> tokenizer -> pretrain -> SFT -> sample.
-# DEPTH=6 bash speedrun.sh        (~1.5h on a Colab T4 incl. data prep, ~20min on an A100)
+# DEPTH=6 bash speedrun.sh        (~1.5-2h on a Colab T4 incl. data prep, ~40min on an A100)
 set -euo pipefail
 DEPTH=${DEPTH:-6}
 MAX_TOKENS=${MAX_TOKENS:-300000000}

@@ -129,7 +129,7 @@ def main():
 
     show_samples()
     meta = {"step": step, "model_config": base_meta["model_config"], "val_bpb": res,
-            "base_step": base_meta["step"], "args": vars(args)}
+            "base_step": base_meta["step"], "tokenizer": tokenizer.fingerprint(), "args": vars(args)}
     save_checkpoint(checkpoint_dir("sft", depth), model, meta)
 
 

@@ -1,7 +1,0 @@
-torch>=2.4
-numpy
-tokenizers>=0.19
-datasets>=2.19
-huggingface_hub
-matplotlib
-gradio

@@ -1,0 +1,18 @@
+[project]
+name = "ruozhi"
+version = "0.1.0"
+description = "nanochat-style small Chinese LM trained on 弱智吧"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "numpy",
+    "tokenizers>=0.19",
+    "datasets>=2.19",
+    "huggingface_hub",
+    "matplotlib",
+    "gradio",
+]
+
+[tool.uv]
+package = false

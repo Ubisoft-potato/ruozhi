@@ -110,7 +110,8 @@ def main():
     ruozhiba = load_ruozhiba_corpus()
 
     # ---------------------------------------------------------- 1. tokenizer
-    if args.force_tokenizer or not os.path.exists(os.path.join(tok_dir, "tokenizer.json")):
+    retrain = args.force_tokenizer or not os.path.exists(os.path.join(tok_dir, "tokenizer.json"))
+    if retrain:
         print0(f"training tokenizer (vocab={args.vocab_size}) on {args.tok_train_chars / 1e6:.0f}M web chars + ruozhiba corpus")
 
         def text_iter():
@@ -129,6 +130,9 @@ def main():
         tok.save(tok_dir)
         print0(f"tokenizer trained in {time.time() - t0:.0f}s -> {tok_dir}")
     tok = RuozhiTokenizer.load(tok_dir)
+    if not retrain and tok.vocab_size != args.vocab_size:
+        raise SystemExit(f"existing tokenizer has vocab {tok.vocab_size} but --vocab_size is {args.vocab_size}; "
+                         f"add --force_tokenizer to retrain it (old token files and checkpoints become unusable)")
     assert tok.vocab_size < 2**16, "tokens are stored as uint16"
     sample = "为什么我爸妈结婚没有邀请我？只剩一个心脏了还能活吗？"
     ids = tok.encode(sample)
@@ -167,6 +171,7 @@ def main():
     meta = {
         "dataset": args.dataset,
         "vocab_size": tok.vocab_size,
+        "tokenizer": tok.fingerprint(),
         "train_tokens": n_train,
         "val_tokens": n_val,
         "web_tokens": web_tokens,

@@ -62,20 +62,23 @@ HuggingFace 上的两个来源访问失败时自动跳过（`--no_hf` 可强制�
 
 | depth | 参数量 | Chinchilla token 数 | T4（粗估） | A100（粗估） |
 |---|---|---|---|---|
-| 4 | 11.5M | 230M | ~15 min | ~3 min |
-| 6（默认） | 23.2M | 464M | ~1 h | ~8 min |
-| 8 | 42.0M | 840M | ~3 h | ~25 min |
+| 4 | 11.5M | 230M | ~15 min | ~3–5 min |
+| 6（默认） | 23.2M | 464M | ~1 h | ~10–15 min |
+| 8 | 42.0M | 840M | ~2–3 h | ~30–50 min |
+
+耗时只含预训练，按 MFU 20–35% 粗估：小模型矩阵太小，喂不饱 A100，实际以训练日志里的 `mfu` / `eta` 为准。d8 需要 840M token，`prepare_pretrain` 建议给 `--max_tokens 500_000_000`（默认 3 亿会重复近 3 遍）；A100 上可加 `--device_batch_size 128` 减少梯度累积。
 
 精度自动选择：A100 / L4 等用 bf16；T4 用 fp16 + GradScaler；CPU 用 fp32。
 
 ## 快速开始
 
-**Colab**：打开 [`notebooks/ruozhi_colab.ipynb`](notebooks/ruozhi_colab.ipynb)，选 GPU 运行时，从上到下运行即可（可选把进度保存到 Google Drive）。
+**Colab**：打开 [`notebooks/ruozhi_colab.ipynb`](notebooks/ruozhi_colab.ipynb)，从上到下运行即可。推荐分两段：先在 CPU 运行时准备数据和分词器并存到 Google Drive，再换 A100 运行时从 Drive 恢复后直接训练（notebook 开头有步骤）。
 
-**本地 / 其他 GPU 机器**：
+**本地 / 其他 GPU 机器**（用 [uv](https://docs.astral.sh/uv/) 管理依赖）：
 
 ```bash
-pip install -r requirements.txt
+uv sync                           # 按 uv.lock 装好 .venv
+source .venv/bin/activate         # 之后的命令都在这个环境里跑；也可以不激活，改用 `uv run python -m ...`
 DEPTH=6 bash speedrun.sh          # 数据 → 分词器 → 预训练 → SFT → 采样
 ```
 
@@ -90,7 +93,7 @@ python -m scripts.chat_cli                                       # 交互聊天
 python -m scripts.chat_web --share                               # 网页
 ```
 
-CPU 上跑通流程（几分钟，只验证代码，模型不会说人话）：
+CPU 上跑通流程（几分钟，只验证代码，模型不会说人话）。在 macOS 上，PyPI 的 torch 就是 CPU + MPS 版本，`uv sync` 后直接能用；Apple Silicon 会自动选 MPS，想强制纯 CPU 可以给训练脚本加 `--device cpu`：
 
 ```bash
 python -m scripts.prepare_ruozhiba --no_hf
@@ -116,7 +119,7 @@ python -m scripts.scaling_laws --analyze_only     # 只重新拟合 / 画图
 
 放大时的建议：
 1. 用 scaling 结果选 depth 和 token 数；`prepare_pretrain --max_tokens` 至少给到所需 token 的一半（重复 ≤2 遍数据问题不大）。
-2. 更大的模型可增大 `--vocab_size`（如 32768，需重训分词器 `--force_tokenizer`）和 `--max_seq_len`。
+2. 更大的模型可增大 `--vocab_size`（如 `--vocab_size 32768 --force_tokenizer`）和 `--max_seq_len`。改了词表后 token 文件会随之重新生成，但旧的 base / SFT 检查点不能再用，需要从头训练。分词器指纹记录在 `pretrain/meta.json` 和各检查点的 `meta.json` 里，不匹配时 `base_train` / `load_model` 会直接报错；词表大小与已有分词器不一致却没加 `--force_tokenizer` 时，`prepare_pretrain` 也会报错。
 3. 可加入更多弱智吧 / 中文对话数据：在 `prepare_ruozhiba.py` 里加来源即可，格式统一为 `{"task", "messages"}`。
 
 ## 目录

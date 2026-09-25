@@ -5,8 +5,12 @@ nanochat trains its own BPE with a GPT-4 style split pattern; we do the same,
 but with the HF tokenizers trainer so there's nothing to compile on Colab.
 The split regex keeps runs of CJK characters together (they are \\p{L}), so
 BPE can learn multi-character Chinese words, while punctuation breaks chunks.
+Merges can also cross word boundaries (e.g. "为什么我"): good for compression,
+not always linguistic words. Pre-segmenting with jieba would fix that at the
+cost of a slow Python pre-tokenizer that tokenizer.json can't serialize.
 """
 import os
+import hashlib
 
 from tokenizers import Tokenizer, Regex, decoders, models, pre_tokenizers, trainers
 
@@ -63,6 +67,24 @@ class RuozhiTokenizer:
     @property
     def vocab_size(self):
         return self.tok.get_vocab_size()
+
+    def fingerprint(self):
+        """
+        Short hash of the whole tokenizer. Stored next to token files and checkpoints:
+        a retrained tokenizer (even at the same vocab size) gives different ids, so
+        anything made with the old one must be regenerated / retrained.
+        """
+        return hashlib.sha256(self.tok.to_str().encode("utf-8")).hexdigest()[:12]
+
+    def check_compatible(self, meta, what):
+        """Raise if `meta` (a meta.json dict) was produced with a different tokenizer."""
+        vocab = meta.get("vocab_size", meta.get("model_config", {}).get("vocab_size"))
+        fp = meta.get("tokenizer")
+        if (vocab is not None and vocab != self.vocab_size) or (fp is not None and fp != self.fingerprint()):
+            raise RuntimeError(
+                f"{what} was built with a different tokenizer (vocab {vocab}, fingerprint {fp}) than the current "
+                f"one (vocab {self.vocab_size}, fingerprint {self.fingerprint()}). After retraining the tokenizer, "
+                f"re-run prepare_pretrain to regenerate token files and retrain base/sft models from scratch.")
 
     def encode(self, text, prepend_bos=False):
         ids = self.tok.encode(text, add_special_tokens=False).ids

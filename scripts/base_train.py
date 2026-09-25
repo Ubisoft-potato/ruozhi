@@ -19,7 +19,7 @@ import argparse
 
 import torch
 
-from core.common import get_path, print0, seed_everything, autodetect_device, get_amp, peak_flops
+from core.common import get_path, load_json, print0, seed_everything, autodetect_device, get_amp, peak_flops
 from core.gpt import GPT, GPTConfig
 from core.tokenizer import RuozhiTokenizer
 from core.dataloader import TokenFileLoader
@@ -77,6 +77,7 @@ def main():
 
     # ------------------------------------------------------------ tokenizer
     tokenizer = RuozhiTokenizer.load(os.path.dirname(get_path("tokenizer", "x")))
+    tokenizer.check_compatible(load_json(get_path("pretrain", "meta.json")), "pretrain/train.bin")
     token_bytes = torch.tensor(tokenizer.token_bytes(), dtype=torch.long)
 
     # ----------------------------------------------------------------- model
@@ -122,8 +123,9 @@ def main():
         model.load_state_dict(torch.load(os.path.join(ckpt_dir, "model.pt"), map_location=device), strict=True)
         for opt, sd in zip(optimizers, torch.load(os.path.join(ckpt_dir, "optim.pt"), map_location=device)):
             opt.load_state_dict(sd)
-        with open(os.path.join(ckpt_dir, "meta.json")) as f:
-            start_step = json.load(f)["step"]
+        resume_meta = load_json(os.path.join(ckpt_dir, "meta.json"))
+        tokenizer.check_compatible(resume_meta, f"checkpoint {ckpt_dir}")
+        start_step = resume_meta["step"]
         print0(f"resumed from step {start_step}")
     else:
         os.makedirs(ckpt_dir, exist_ok=True)
@@ -157,7 +159,7 @@ def main():
 
     def meta(step, val_bpb):
         return {"step": step, "num_iterations": num_iterations, "val_bpb": val_bpb, "model_config": config.to_dict(),
-                "num_params": num_params, "flops_per_token": flops_per_token, "args": vars(args)}
+                "tokenizer": tokenizer.fingerprint(), "num_params": num_params, "flops_per_token": flops_per_token, "args": vars(args)}
 
     # ------------------------------------------------------------------ loop
     gpu_peak = peak_flops(device)
