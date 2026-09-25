@@ -219,3 +219,6 @@ __marimo__/
 
 # ruozhi: data, tokenizer, checkpoints
 artifacts/
+
+.vscode
+.idea
