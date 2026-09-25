@@ -57,8 +57,9 @@ HuggingFace 上的两个来源访问失败时自动跳过（`--no_hf` 可强制�
 | [Orphanage/Baidu_Tieba_SunXiaochuan](https://huggingface.co/datasets/Orphanage/Baidu_Tieba_SunXiaochuan) | 孙吧 2.1k 帖（标题 + 楼主 → 回复） | `tieba` |
 | [Orphanage/Baidu_Tieba_KangYaBeiGuo](https://huggingface.co/datasets/Orphanage/Baidu_Tieba_KangYaBeiGuo) | 抗压背锅吧 5.1k 帖 | `tieba` |
 | [PostMindLab/ToxiRewriteCN](https://github.com/PostMindLab/ToxiRewriteCN) | 脏话 / 谐音 / emoji 与去毒改写对照，只取 40 字以内的单句 | `yinyang`（正常 → 冲）、`wenming`（冲 → 正常） |
+| [cndiandian/zuanbot.com](https://github.com/cndiandian/zuanbot.com)（`db/data.db`） | 祖安语录 1.7k 条（sqlite，`min` 嘴臭 / `max` 问候全家） | `zuan`（“骂我一句”“就这？”等 → 一条骂人话） |
 
-贴吧每帖只取前 8 条可用回复（`--replies_per_thread`，越靠前越是在回楼主），去掉广告 / 签名 / 引用楼层，验证集按帖划分。ToxiCN、COLDataset 是分类数据集，评论大多是针对群体的观点而非对人回复，不适合作为 SFT 回答，所以不使用。默认不按内容过滤；加 `--filter` 会用 ToxiCN 的群体词库去掉针对群体的仇恨言论，并去掉暴力威胁。
+贴吧每帖只取前 8 条可用回复（`--replies_per_thread`，越靠前越是在回楼主），去掉广告 / 签名 / 引用楼层，验证集按帖划分。ToxiCN、COLDataset 是分类数据集，评论大多是针对群体的观点而非对人回复，不适合作为 SFT 回答，所以不使用。祖安语录去掉字符画 / 摩斯码 / 英文 / 重复，每条在训练集里配 2 个不同的提问（`--zuan_upsample`），`max` 级别另有“往死里骂我”等提问；`--zuan_levels min` 只用轻度的，`--no_zuan` 不用。默认不按内容过滤；加 `--filter` 会用 ToxiCN 的群体词库去掉针对群体的仇恨言论，并去掉暴力威胁。
 
 **通用预训练**：默认 [HuggingFaceFW/fineweb-2](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) 的 `cmn_Hani`（中文网页，口语化，最接近贴吧），并过滤掉繁体为主的文档；也可以 `--dataset fineweb-edu-zh`（[opencsg/Fineweb-Edu-Chinese-V2.1](https://huggingface.co/datasets/opencsg/Fineweb-Edu-Chinese-V2.1)）或 `--dataset wiki`。
 

@@ -7,6 +7,8 @@ Sources:
   - Orphanage/Baidu_Tieba_KangYaBeiGuo (HF, MIT): 5.1k 抗压背锅吧 threads, ~120k replies
   - PostMindLab/ToxiRewriteCN (GitHub): 1.5k (toxic, neutral) rewrite pairs, incl. 谐音 / emoji 脏话;
     only the short single-sentence ones are used (the Q/A dialogue scenarios are Zhihu debates)
+  - cndiandian/zuanbot.com (GitHub, db/data.db): 1.7k 祖安 insults (sqlite table main(id, text, level)),
+    level "min" (嘴臭) / "max" (问候全家); ASCII art / Morse / English ones are dropped
 
 ToxiCN / COLDataset are not used: they are classification sets whose comments are mostly opinions
 about groups, not replies to anyone, so they make poor assistant targets.
@@ -20,15 +22,18 @@ SFT tasks:
             (the first --replies_per_thread usable replies of each thread; val is split by thread)
   yinyang   "用贴吧老哥的语气说：<neutral>"     -> the toxic original
   wenming   "文明点说：<toxic>"                -> the neutral rewrite (so the bot can also de-escalate)
+  zuan      "骂我一句" / "就这？" etc.          -> a zuanbot insult ("往死里骂我" etc. for level max);
+            each insult appears --zuan_upsample times in train with different prompts
 
 Outputs (under $RUOZHI_BASE_DIR, default ./artifacts):
   sft/duixian_train.jsonl, sft/duixian_val.jsonl
 
-Usage: python -m scripts.prepare_duixian [--filter] [--replies_per_thread 8] [--max_rewrite_chars 40]
+Usage: python -m scripts.prepare_duixian [--filter] [--replies_per_thread 8] [--max_rewrite_chars 40] [--no_zuan]
 """
 import os
 import re
 import json
+import sqlite3
 import random
 import argparse
 import urllib.request
@@ -40,6 +45,7 @@ from scripts.prepare_ruozhiba import clean, key, conv
 TOXICN = "https://raw.githubusercontent.com/DUT-lujunyu/ToxiCN/main/"
 GITHUB_SOURCES = {
     "toxirewrite.json": "https://raw.githubusercontent.com/PostMindLab/ToxiRewriteCN/main/data/ToxiRewriteCN.json",
+    "zuanbot.db": "https://raw.githubusercontent.com/cndiandian/zuanbot.com/master/db/data.db",
 }
 LEXICON_SOURCES = {  # only downloaded with --filter
     "lex_LGBT.json": TOXICN + "ToxiCN_ex/ToxiCN/lexicon/LGBT.json",
@@ -71,6 +77,20 @@ WENMING_TEMPLATES = [
     "把这句话说得礼貌一点：{t}",
     "去掉脏话：{t}",
 ]
+# zuan prompts: requests for an insult, and provocations to answer
+ZUAN_PROMPTS = [
+    "骂我一句", "损我两句", "来句嘴臭的", "怼我", "你倒是骂我啊", "用祖安话骂我",
+    "就这？", "你个废物AI", "你行你上啊", "菜就多练", "你急了", "你是不是傻", "有本事你骂回来",
+]
+ZUAN_MAX_PROMPTS = ["往死里骂我", "骂狠一点", "来句最脏的", "祖安模式，问候我全家", "不带脏字的我不要，骂狠点"]
+
+# zuanbot cleaning: ASCII art (runs of spaces between glyphs), "来自知乎用户@x" credits,
+# "（建议…使用）" usage notes, trailing "——钱钟书" attributions, 45x "你急了" spam
+_art = re.compile(r"\S[ \t　]{3,}\S")
+_credit = re.compile(r"^来自\S*用户@.*$|^（[^）]*）.*$", re.M)
+_attribution = re.compile(r"\s*——\s*\S{1,6}$")
+_repeat = re.compile(r"(.{2,8}?)\1{3,}")
+_cjk = re.compile(r"[\u4e00-\u9fff]")
 
 # replies that are ads, signatures, quoted floors, or scraped UI text (data cleaning, always on)
 _junk = re.compile(r"https?://|www\.|[qQ]{2}|微信|vx|加我|免费咨询|维权|客户端|\d+楼\d{4}-|楼主禁言|该楼层|百度|贴吧|我也说一句|\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{2}")
@@ -114,6 +134,38 @@ def load_threads(repo, patterns):
     return threads
 
 
+def load_zuanbot(path, max_chars):
+    """(text, level) pairs from zuanbot.com's sqlite db, cleaned and de-duplicated."""
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    rows = con.execute("SELECT text, level FROM main ORDER BY id").fetchall()
+    con.close()
+    out, seen, dropped = [], set(), Counter()
+    for raw, level in rows:
+        raw = raw or ""
+        if _art.search(raw):
+            dropped["art"] += 1
+            continue
+        text = _credit.sub("", raw.replace("\r", ""))
+        text = _repeat.sub(r"\1\1\1", clean(_attribution.sub("", text.strip())))
+        k = key(text)
+        if len(k) < 2 or len(_cjk.findall(k)) < 0.5 * len(k):  # Morse / English / pinyin-only
+            dropped["not_chinese"] += 1
+            continue
+        if len(raw) >= 250:  # varchar(255) cut it mid-sentence: keep up to the last full clause
+            m = re.search(r"^.*[。！？!?，,]", text, re.S)
+            text = m.group(0).rstrip("，,") if m else text
+        if len(text) > max_chars:
+            dropped["too_long"] += 1
+            continue
+        if k in seen:
+            dropped["dup"] += 1
+            continue
+        seen.add(k)
+        out.append((text, level if level in ("min", "max") else "max"))
+    print0(f"zuanbot: {len(rows)} rows -> {len(out)} kept ({Counter(l for _, l in out)}), dropped {dict(dropped)}")
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--filter", action="store_true", help="drop group-targeted hate speech and violent threats (off by default)")
@@ -124,6 +176,10 @@ def main():
     parser.add_argument("--val_frac", type=float, default=0.03)
     parser.add_argument("--rewrite_upsample", type=int, default=3, help="repeat yinyang / wenming in train (small but on-target)")
     parser.add_argument("--no_hf", action="store_true", help="skip the 贴吧 data (HuggingFace)")
+    parser.add_argument("--no_zuan", action="store_true", help="skip the zuanbot.com insults")
+    parser.add_argument("--zuan_levels", default="min,max", help="zuanbot levels to use: min (嘴臭), max (问候全家)")
+    parser.add_argument("--max_zuan_chars", type=int, default=200, help="drop zuanbot insults longer than this")
+    parser.add_argument("--zuan_upsample", type=int, default=2, help="copies of each insult in train, each with its own prompt")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     rng = random.Random(args.seed)
@@ -191,6 +247,17 @@ def main():
             c["meta"] = meta
             rows.append(c)
 
+    # ------------------------------------------------------------ zuanbot
+    zuan = []  # one list of conversations per insult, so val can be split by insult
+    if not args.no_zuan:
+        levels = set(args.zuan_levels.split(","))
+        for text, level in load_zuanbot(files["zuanbot.db"], args.max_zuan_chars):
+            if level not in levels or not ok("zuanbot", text):
+                continue
+            pool = ZUAN_PROMPTS + ZUAN_MAX_PROMPTS if level == "max" else ZUAN_PROMPTS
+            prompts = rng.sample(pool, min(args.zuan_upsample, len(pool)))
+            zuan.append([dict(conv("zuan", p, text, "zuanbot"), meta={"level": level}) for p in prompts])
+
     # ------------------------------------------------------------ split
     train, val = [], []
     # yinyang and wenming share their source sentences; split them together so val stays unseen
@@ -204,8 +271,12 @@ def main():
         "yinyang": (yinyang[:n_val], yinyang[n_val:]),
         "wenming": ([c for c in wenming if c["_post"] in val_keys], [c for c in wenming if c["_post"] not in val_keys]),
     }
+    if zuan:
+        rng.shuffle(zuan)
+        n_zuan = max(20, int(len(zuan) * args.val_frac))
+        splits["zuan"] = ([g[0] for g in zuan[:n_zuan]], [c for g in zuan[n_zuan:] for c in g])
     for name, (v, t) in splits.items():
-        if name != "tieba":
+        if name in ("yinyang", "wenming"):
             t = t * args.rewrite_upsample
         val += v
         train += t
