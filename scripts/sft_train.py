@@ -5,6 +5,7 @@ Loss is only computed on assistant tokens.
 Usage:
   python -m scripts.sft_train                  # latest base checkpoint
   python -m scripts.sft_train --depth 6 --num_epochs 3
+  python -m scripts.sft_train --extra duixian  # also mix in sft/duixian_*.jsonl (see prepare_duixian.py)
 """
 import os
 import json
@@ -34,6 +35,7 @@ def get_args():
     p.add_argument("--eval_every", type=int, default=200)
     p.add_argument("--log_every", type=int, default=20)
     p.add_argument("--max_steps", type=int, default=-1, help="for quick tests")
+    p.add_argument("--extra", nargs="*", default=[], help="extra mixtures to add, e.g. duixian -> sft/duixian_{train,val}.jsonl")
     p.add_argument("--device", default="")
     p.add_argument("--seed", type=int, default=1337)
     return p.parse_args()
@@ -54,6 +56,9 @@ def main():
 
     train_convs = load_conversations(get_path("sft", "train.jsonl"))
     val_convs = load_conversations(get_path("sft", "val.jsonl"))
+    for name in args.extra:
+        train_convs += load_conversations(get_path("sft", f"{name}_train.jsonl"))
+        val_convs += load_conversations(get_path("sft", f"{name}_val.jsonl"))
     train_loader = SFTLoader(train_convs, tokenizer, args.batch_size, max_len, device, seed=args.seed)
     val_by_task = defaultdict(list)
     for c in val_convs:
